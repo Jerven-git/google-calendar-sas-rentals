@@ -9,7 +9,12 @@
     "routes": [
         {
             "src": "/api/book",
-            "dest": "/api/book.js"
+            "dest": "/api/book.js",
+            "headers": {
+                "Access-Control-Allow-Origin": "https://1ruyb5-ny.myshopify.com",
+                "Access-Control-Allow-Methods": "POST, OPTIONS",
+                "Access-Control-Allow-Headers": "Content-Type"
+            }
         }
     ]
 }
