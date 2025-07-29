@@ -6,20 +6,27 @@ export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
-  // ✅ Handle preflight (OPTIONS) request
   if (req.method === 'OPTIONS') {
-    return res.status(204).send();
+    return res.status(204).send(); // Preflight
   }
 
-  // ✅ Only allow POST
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  const { date, FirstName, LastName, email, phone, garments, eventInfo } = req.body;
+  const {
+    'contact[first_name]': firstName,
+    'contact[last_name]': lastName,
+    'contact[phone]': phone,
+    'contact[email]': email,
+    'contact[garments]': garments,
+    'contact[event_info]': eventInfo
+  } = req.body;
+
+  // Optional: Get selected date (you'll pass it from frontend)
+  const { selectedDate } = req.body;
 
   try {
-    // ✅ Authenticate with Google Calendar
     const auth = new google.auth.JWT(
       process.env.GOOGLE_CLIENT_EMAIL,
       null,
@@ -29,24 +36,24 @@ export default async function handler(req, res) {
 
     const calendar = google.calendar({ version: 'v3', auth });
 
-    // ✅ Create event
+    const event = {
+      summary: `Booking: ${firstName} ${lastName}`,
+      start: { date: selectedDate }, // All-day event
+      end: { date: selectedDate },
+      description: `
+        Name: ${firstName} ${lastName}
+        Phone: ${phone}
+        Email: ${email}
+        Garments: ${garments || 'Not specified'}
+        Event Info: ${eventInfo || 'Not specified'}
+      `.trim()
+    };
+
     await calendar.events.insert({
       calendarId: process.env.GOOGLE_CALENDAR_ID,
-      resource: {
-        summary: `Booking: ${FirstName} ${LastName}`,
-        start: { date },
-        end: { date },
-        description: `
-          Name: ${FirstName} ${LastName}
-          Email: ${email}
-          Phone: ${phone}
-          Garments: ${garments}
-          Event Info: ${eventInfo}
-        `.trim()
-      }
+      resource: event
     });
 
-    // ✅ Success
     return res.status(200).json({ success: true });
   } catch (error) {
     console.error('Error creating event:', error);
