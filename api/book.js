@@ -1,12 +1,16 @@
 import { google } from 'googleapis';
 
 export default async function handler(req, res) {
-  // ✅ CORS
-  res.setHeader('Access-Control-Allow-Origin', '*');
+  // ✅ Always set CORS headers
+  res.setHeader('Access-Control-Allow-Credentials', true);
+  res.setHeader('Access-Control-Allow-Origin', 'https://1ruyb5-ny.myshopify.com'); // ← Specific origin (more secure)
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
 
-  if (req.method === 'OPTIONS') return res.status(204).send();
+  // ✅ Handle preflight
+  if (req.method === 'OPTIONS') {
+    return res.status(204).send();
+  }
 
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
@@ -22,6 +26,15 @@ export default async function handler(req, res) {
     selectedAppointments = []
   } = req.body;
 
+  // ✅ Validate required fields
+  if (!firstName || !lastName || !phone || !email) {
+    return res.status(400).json({ error: 'Missing required fields' });
+  }
+
+  if (!selectedAppointments || selectedAppointments.length === 0) {
+    return res.status(400).json({ error: 'No appointment selected' });
+  }
+
   try {
     const auth = new google.auth.JWT(
       process.env.GOOGLE_CLIENT_EMAIL,
@@ -32,47 +45,40 @@ export default async function handler(req, res) {
 
     const calendar = google.calendar({ version: 'v3', auth });
 
-    // ✅ Create an event for each selected appointment
-    const promises = selectedAppointments.map(async (appointmentText) => {
-      // Extract date from string like "April 5, 2025 at 10:00 AM"
-      const dateMatch = appointmentText.match(/([A-Za-z]+ \d{1,2}, \d{4})/);
-      const timeMatch = appointmentText.match(/\d{1,2}:\d{2} [APMapm]+/);
+    // ✅ Create one event per selected appointment
+    for (const appointment of selectedAppointments) {
+      // Extract date in "Month DD, YYYY" format
+      const dateMatch = appointment.match(/([A-Za-z]+ \d{1,2}, \d{4})/);
+      if (!dateMatch) continue;
 
-      const dateStr = dateMatch ? dateMatch[0] : null;
-      const timeStr = timeMatch ? timeMatch[0] : null;
+      const [full, dateStr] = dateMatch;
 
       // Convert to YYYY-MM-DD
       const jsDate = new Date(dateStr);
       const isoDate = isNaN(jsDate.getTime()) ? null : jsDate.toISOString().split('T')[0];
-
-      if (!isoDate) {
-        console.warn('Invalid date:', appointmentText);
-        return;
-      }
+      if (!isoDate) continue;
 
       await calendar.events.insert({
         calendarId: process.env.GOOGLE_CALENDAR_ID,
         resource: {
           summary: `Booking: ${firstName} ${lastName}`,
-          start: { date: isoDate }, // All-day event
+          start: { date: isoDate },
           end: { date: isoDate },
           description: `
-            Name: ${firstName} ${lastName}
-            Phone: ${phone}
-            Email: ${email}
-            Garments: ${garments || 'Not specified'}
-            Event Info: ${eventInfo || 'Not specified'}
-            Time: ${timeStr || 'All day'}
+Name: ${firstName} ${lastName}
+Phone: ${phone}
+Email: ${email}
+Garments: ${garments || 'Not specified'}
+Event Info: ${eventInfo || 'Not specified'}
+Time: ${appointment.includes('at') ? appointment.split('at')[1].trim() : 'All day'}
           `.trim()
         }
       });
-    });
-
-    await Promise.all(promises);
+    }
 
     return res.status(200).json({ success: true });
   } catch (error) {
-    console.error('Error:', error);
-    return res.status(500).json({ success: false, error: error.message });
+    console.error('Google Calendar Error:', error);
+    return res.status(500).json({ success: false, error: 'Failed to create event' });
   }
 }
