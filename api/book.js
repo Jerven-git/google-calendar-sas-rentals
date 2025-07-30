@@ -52,8 +52,10 @@ export default async function handler(req, res) {
       if (!dateMatch) continue;
 
       const [, dateStr] = dateMatch;
-      const jsDate = new Date(dateStr);
-      const isoDate = jsDate.toISOString().split('T')[0];
+      const jsDate = new Date(appointment); // Full "July 30, 2025 at 2:00 PM"
+      const startDateTime = jsDate.toISOString();
+      const endDateTime = new Date(jsDate.getTime() + 60 * 60 * 1000).toISOString(); // 1-hour duration
+
 
       if (!isoDate) {
         console.warn('[WARNING] Invalid date:', dateStr);
@@ -64,8 +66,8 @@ export default async function handler(req, res) {
         calendarId: process.env.GOOGLE_CALENDAR_ID,
         resource: {
           summary: `Booking: ${firstName} ${lastName}`,
-          start: { date: isoDate },
-          end: { date: isoDate },
+          start: { dateTime: startDateTime, timeZone: 'Asia/Manila' },
+          end: { dateTime: endDateTime, timeZone: 'Asia/Manila' },
           description: `
             Name: ${firstName} ${lastName}
             Phone: ${phone}
