@@ -8,13 +8,23 @@ export default async function handler(req, res) {
       buffers.push(chunk);
     }
 
+    const rawBody = Buffer.concat(buffers).toString();
+    const contentType = req.headers['content-type'];
+
     try {
-      req.body = JSON.parse(Buffer.concat(buffers).toString());
+      if (contentType.includes('application/json')) {
+        req.body = JSON.parse(rawBody);
+      } else if (contentType.includes('application/x-www-form-urlencoded')) {
+        const params = new URLSearchParams(rawBody);
+        req.body = Object.fromEntries(params.entries());
+      } else {
+        return res.status(400).json({ error: 'Unsupported content type' });
+      }
     } catch (err) {
-      return res.status(400).json({ error: 'Invalid JSON body' });
+      return res.status(400).json({ error: 'Invalid body format' });
     }
   }
-
+  console.log('Content-Type:', req.headers['content-type']);
   // ✅ CORS setup
   res.setHeader('Access-Control-Allow-Credentials', true);
   res.setHeader('Access-Control-Allow-Origin', 'https://1ruyb5-ny.myshopify.com');
