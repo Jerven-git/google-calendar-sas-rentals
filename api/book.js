@@ -42,13 +42,16 @@ export default async function handler(req, res) {
 
   const verifyCaptcha = async (token) => {
     const secret = process.env.RECAPTCHA_SECRET_KEY;
-    const response = await fetch(`https://www.google.com/recaptcha/api/siteverify`, {
+
+    const response = await fetch('https://www.google.com/recaptcha/api/siteverify', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded'
+      },
       body: new URLSearchParams({
         secret,
         response: token
-      }).toString()
+      }) // ✅ do NOT call .toString()
     });
 
     return await response.json();
