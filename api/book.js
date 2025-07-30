@@ -9,7 +9,7 @@ export default async function handler(req, res) {
 
   // ✅ Immediately handle OPTIONS
   if (req.method === 'OPTIONS') {
-    return res.status(200).end(); // CORS preflight success
+    return res.status(200).end();
   }
 
   // ✅ Only parse body for POST
@@ -51,7 +51,7 @@ export default async function handler(req, res) {
       body: new URLSearchParams({
         secret,
         response: token
-      }) // ✅ do NOT call .toString()
+      })
     });
 
     return await response.json();
