@@ -83,7 +83,8 @@ export default async function handler(req, res) {
       process.env.GOOGLE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
       ['https://www.googleapis.com/auth/calendar']
     );
-
+    console.log('[DEBUG] EMAIL:', process.env.GOOGLE_CLIENT_EMAIL);
+    console.log('[DEBUG] CALENDAR ID:', process.env.GOOGLE_CALENDAR_ID);
     const calendar = google.calendar({ version: 'v3', auth });
 
     for (const appointment of selectedAppointments) {
