@@ -1,6 +1,8 @@
 import { google } from 'googleapis';
 
 export default async function handler(req, res) {
+  console.log('[DEBUG] Request Body:', req.body);
+  console.log('[DEBUG] captcha_token:', req.body.captcha_token);
   // ✅ Always set CORS headers FIRST
   res.setHeader('Access-Control-Allow-Credentials', true);
   res.setHeader('Access-Control-Allow-Origin', 'https://1ruyb5-ny.myshopify.com');
