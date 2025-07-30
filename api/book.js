@@ -31,9 +31,6 @@ export default async function handler(req, res) {
     }
   }
 
-  console.log('[DEBUG] Request Body:', req.body);
-  console.log('[DEBUG] captcha_token:', req.body.captcha_token);
-
   // reCAPTCHA verification
   const captchaToken = req.body.captcha_token;
   if (!captchaToken) {
@@ -103,7 +100,15 @@ export default async function handler(req, res) {
     const calendar = google.calendar({ version: 'v3', auth });
 
     for (const appointment of selectedAppointments) {
-      const jsDate = new Date(appointment); // Be sure format is parsable
+      const match = appointment.match(/(\d{2})\/(\d{2})\/(\d{4}) at (\d{2}):(\d{2}):(\d{2})/);
+      if (!match) {
+        console.warn('[WARNING] Invalid appointment format:', appointment);
+        continue;
+      }
+
+      const [_, day, month, year, hour, minute, second] = match;
+      const jsDate = new Date(`${year}-${month}-${day}T${hour}:${minute}:${second}+08:00`);
+
       if (isNaN(jsDate.getTime())) {
         console.warn('[WARNING] Invalid appointment format:', appointment);
         continue;
