@@ -53,8 +53,8 @@ export default async function handler(req, res) {
 
   const captchaResult = await verifyCaptcha(captchaToken);
 
-  if (!captchaResult.success || captchaResult.score < 0.5) {
-    return res.status(403).json({ error: 'Captcha verification failed' });
+  if (!captchaResult.success || captchaResult.score < 0.1) {
+    return res.status(403).json({ error: 'Captcha verification failed', score: captchaResult.score });
   }
 
   // Parse form data
