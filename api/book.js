@@ -1,3 +1,5 @@
+import { google } from 'googleapis';
+
 export default async function handler(req, res) {
   try {
     res.setHeader('Access-Control-Allow-Credentials', true);
@@ -65,12 +67,12 @@ export default async function handler(req, res) {
           start: { date: isoDate },
           end: { date: isoDate },
           description: `
-Name: ${firstName} ${lastName}
-Phone: ${phone}
-Email: ${email}
-Garments: ${garments || 'Not specified'}
-Event Info: ${eventInfo || 'Not specified'}
-Time: ${appointment.includes('at') ? appointment.split('at')[1].trim() : 'All day'}
+            Name: ${firstName} ${lastName}
+            Phone: ${phone}
+            Email: ${email}
+            Garments: ${garments || 'Not specified'}
+            Event Info: ${eventInfo || 'Not specified'}
+            Time: ${appointment.includes('at') ? appointment.split('at')[1].trim() : 'All day'}
           `.trim()
         }
       });
