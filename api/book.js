@@ -1,88 +1,41 @@
 import { google } from 'googleapis';
 
 export default async function handler(req, res) {
-  // ✅ Manually parse JSON body if not already parsed
-  if (!req.body) {
-    const buffers = [];
-    for await (const chunk of req) {
-      buffers.push(chunk);
-    }
-
-    const rawBody = Buffer.concat(buffers).toString();
-    const contentType = req.headers['content-type'];
-
-    try {
-      if (contentType.includes('application/json')) {
-        req.body = JSON.parse(rawBody);
-      } else if (contentType.includes('application/x-www-form-urlencoded')) {
-        const params = new URLSearchParams(rawBody);
-        req.body = Object.fromEntries(params.entries());
-      } else {
-        return res.status(400).json({ error: 'Unsupported content type' });
-      }
-    } catch (err) {
-      return res.status(400).json({ error: 'Invalid body format' });
-    }
-  }
-  console.log('Content-Type:', req.headers['content-type']);
-  // ✅ CORS setup
-  res.setHeader('Access-Control-Allow-Credentials', true);
-  res.setHeader('Access-Control-Allow-Origin', 'https://1ruyb5-ny.myshopify.com');
-  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-
-  if (req.method === 'OPTIONS') {
-    return res.status(200).end();
-  }
-
-  if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method not allowed' });
-  }
-
-  // ✅ Extract CAPTCHA token
-  const token = req.body['captcha_token'];
-  if (!token) {
-    return res.status(400).json({ error: 'Missing CAPTCHA token' });
-  }
-
-  // ✅ Verify CAPTCHA token
   try {
-    const captchaVerifyRes = await fetch('https://www.google.com/recaptcha/api/siteverify', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: `secret=${process.env.RECAPTCHA_SECRET_KEY}&response=${token}`
-    });
+    res.setHeader('Access-Control-Allow-Credentials', true);
+    res.setHeader('Access-Control-Allow-Origin', 'https://1ruyb5-ny.myshopify.com');
+    res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
 
-    const captchaData = await captchaVerifyRes.json();
-
-    if (!captchaData.success || captchaData.score < 0.5) {
-      return res.status(400).json({ error: 'Failed CAPTCHA verification' });
+    if (req.method === 'OPTIONS') {
+      res.setHeader('Content-Length', '0');
+      return res.status(200).end();
     }
-  } catch (err) {
-    return res.status(500).json({ error: 'CAPTCHA verification failed', message: err.message });
-  }
 
-  // ✅ Extract form data
-  const {
-    'contact[first_name]': firstName,
-    'contact[last_name]': lastName,
-    'contact[phone]': phone,
-    'contact[email]': email,
-    'contact[garments]': garments,
-    'contact[event_info]': eventInfo,
-    selectedAppointments = []
-  } = req.body;
+    if (req.method !== 'POST') {
+      return res.status(405).json({ error: 'Method not allowed' });
+    }
 
-  if (!firstName || !lastName || !phone || !email) {
-    return res.status(400).json({ error: 'Missing required fields' });
-  }
+    console.log('[DEBUG] Raw Body:', req.body);
 
-  if (!selectedAppointments.length) {
-    return res.status(400).json({ error: 'No appointment selected' });
-  }
+    const {
+      'contact[first_name]': firstName,
+      'contact[last_name]': lastName,
+      'contact[phone]': phone,
+      'contact[email]': email,
+      'contact[garments]': garments,
+      'contact[event_info]': eventInfo,
+      selectedAppointments = []
+    } = req.body || {};
 
-  try {
-    // ✅ Authenticate with Google Calendar API
+    if (!firstName || !lastName || !phone || !email) {
+      return res.status(400).json({ error: 'Missing required fields' });
+    }
+
+    if (!selectedAppointments.length) {
+      return res.status(400).json({ error: 'No appointment selected' });
+    }
+
     const auth = new google.auth.JWT(
       process.env.GOOGLE_CLIENT_EMAIL,
       null,
@@ -90,20 +43,26 @@ export default async function handler(req, res) {
       ['https://www.googleapis.com/auth/calendar']
     );
 
+    console.log('[DEBUG] Authenticating with:', process.env.GOOGLE_CLIENT_EMAIL);
+
     const calendar = google.calendar({ version: 'v3', auth });
 
-    // ✅ Create calendar events
     for (const appointment of selectedAppointments) {
-      const jsDate = new Date(appointment);
-      if (isNaN(jsDate.getTime())) {
-        console.warn('[WARNING] Invalid date format:', appointment);
+      const dateMatch = appointment.match(/([A-Za-z]+ \d{1,2}, \d{4})/);
+      if (!dateMatch) continue;
+
+      const [, dateStr] = dateMatch;
+      const jsDate = new Date(appointment); // Full "July 30, 2025 at 2:00 PM"
+      const startDateTime = jsDate.toISOString();
+      const endDateTime = new Date(jsDate.getTime() + 60 * 60 * 1000).toISOString(); // 1-hour duration
+
+
+      if (!isoDate) {
+        console.warn('[WARNING] Invalid date:', dateStr);
         continue;
       }
 
-      const startDateTime = jsDate.toISOString();
-      const endDateTime = new Date(jsDate.getTime() + 60 * 60 * 1000).toISOString();
-
-      await calendar.events.insert({
+      calendar.events.insert({
         calendarId: process.env.GOOGLE_CALENDAR_ID,
         resource: {
           summary: `Booking: ${firstName} ${lastName}`,
@@ -122,13 +81,8 @@ export default async function handler(req, res) {
     }
 
     return res.status(200).json({ success: true });
-
   } catch (err) {
     console.error('[ERROR]', err);
-    return res.status(500).json({
-      success: false,
-      error: 'Function crashed',
-      message: err.message
-    });
+    return res.status(500).json({ success: false, error: 'Function crashed', message: err.message });
   }
 }
