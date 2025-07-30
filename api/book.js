@@ -52,6 +52,15 @@ export default async function handler(req, res) {
   };
 
   const captchaResult = await verifyCaptcha(captchaToken);
+  console.log('[DEBUG] CAPTCHA RESULT', captchaResult);
+
+  // Temporary for debug only
+  if (!captchaResult.success) {
+    return res.status(403).json({
+      error: 'Captcha verification failed',
+      raw: captchaResult
+    });
+  }
 
   if (!captchaResult.success || captchaResult.score < 0.1) {
     return res.status(403).json({ error: 'Captcha verification failed', score: captchaResult.score });
