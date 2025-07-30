@@ -109,7 +109,7 @@ export default async function handler(req, res) {
       const startDateTime = jsDate.toISOString();
       const endDateTime = new Date(jsDate.getTime() + 60 * 60 * 1000).toISOString(); // +1 hour
 
-      await calendar.events.insert({
+      calendar.events.insert({
         calendarId: process.env.GOOGLE_CALENDAR_ID,
         resource: {
           summary: `Booking: ${firstName} ${lastName}`,
