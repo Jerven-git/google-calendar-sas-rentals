@@ -1,6 +1,23 @@
 import { google } from 'googleapis';
 
 export default async function handler(req, res) {
+  const token = req.body['captcha_token'];
+
+  if (!token) {
+    return res.status(400).json({ error: 'Missing CAPTCHA token' });
+  }
+
+  const captchaRes = await fetch('https://www.google.com/recaptcha/api/siteverify', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: `secret=${process.env.RECAPTCHA_SECRET_KEY}&response=${token}`
+  });
+
+  const captchaData = await captchaRes.json();
+  if (!captchaData.success || captchaData.score < 0.5) {
+    return res.status(403).json({ error: 'Failed CAPTCHA verification' });
+  }
+
   try {
     res.setHeader('Access-Control-Allow-Credentials', true);
     res.setHeader('Access-Control-Allow-Origin', 'https://1ruyb5-ny.myshopify.com');
@@ -8,15 +25,12 @@ export default async function handler(req, res) {
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
 
     if (req.method === 'OPTIONS') {
-      res.setHeader('Content-Length', '0');
       return res.status(200).end();
     }
 
     if (req.method !== 'POST') {
       return res.status(405).json({ error: 'Method not allowed' });
     }
-
-    console.log('[DEBUG] Raw Body:', req.body);
 
     const {
       'contact[first_name]': firstName,
@@ -26,7 +40,7 @@ export default async function handler(req, res) {
       'contact[garments]': garments,
       'contact[event_info]': eventInfo,
       selectedAppointments = []
-    } = req.body || {};
+    } = req.body;
 
     if (!firstName || !lastName || !phone || !email) {
       return res.status(400).json({ error: 'Missing required fields' });
@@ -43,24 +57,17 @@ export default async function handler(req, res) {
       ['https://www.googleapis.com/auth/calendar']
     );
 
-    console.log('[DEBUG] Authenticating with:', process.env.GOOGLE_CLIENT_EMAIL);
-
     const calendar = google.calendar({ version: 'v3', auth });
 
     for (const appointment of selectedAppointments) {
-      const dateMatch = appointment.match(/([A-Za-z]+ \d{1,2}, \d{4})/);
-      if (!dateMatch) continue;
-
-      const [, dateStr] = dateMatch;
-      const jsDate = new Date(appointment); // Full "July 30, 2025 at 2:00 PM"
-      const startDateTime = jsDate.toISOString();
-      const endDateTime = new Date(jsDate.getTime() + 60 * 60 * 1000).toISOString(); // 1-hour duration
-
-
-      if (!isoDate) {
-        console.warn('[WARNING] Invalid date:', dateStr);
+      const jsDate = new Date(appointment); // Full: "July 30, 2025 at 2:00 PM"
+      if (isNaN(jsDate.getTime())) {
+        console.warn('[WARNING] Invalid date format:', appointment);
         continue;
       }
+
+      const startDateTime = jsDate.toISOString();
+      const endDateTime = new Date(jsDate.getTime() + 60 * 60 * 1000).toISOString();
 
       await calendar.events.insert({
         calendarId: process.env.GOOGLE_CALENDAR_ID,
@@ -81,8 +88,13 @@ export default async function handler(req, res) {
     }
 
     return res.status(200).json({ success: true });
+
   } catch (err) {
     console.error('[ERROR]', err);
-    return res.status(500).json({ success: false, error: 'Function crashed', message: err.message });
+    return res.status(500).json({
+      success: false,
+      error: 'Function crashed',
+      message: err.message
+    });
   }
 }
