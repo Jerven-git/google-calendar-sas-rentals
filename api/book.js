@@ -9,7 +9,8 @@ export default async function handler(req, res) {
 
   // ✅ Handle preflight
   if (req.method === 'OPTIONS') {
-    return res.status(204).send();
+    res.setHeader('Content-Length', '0');
+    return res.status(200).end();
   }
 
   if (req.method !== 'POST') {
