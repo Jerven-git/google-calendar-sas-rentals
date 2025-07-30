@@ -1,33 +1,34 @@
 import { google } from 'googleapis';
 
 export default async function handler(req, res) {
-  // Manually parse body if needed (for Vercel)
-  if (!req.body) {
-    const buffers = [];
-    for await (const chunk of req) {
-      buffers.push(chunk);
-    }
-    try {
-      req.body = JSON.parse(Buffer.concat(buffers).toString());
-    } catch (err) {
-      return res.status(400).json({ error: 'Invalid JSON body' });
-    }
-  }
-
-  // Set CORS headers
+  // ✅ Always set CORS headers FIRST
   res.setHeader('Access-Control-Allow-Credentials', true);
   res.setHeader('Access-Control-Allow-Origin', 'https://1ruyb5-ny.myshopify.com');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
 
-  // Handle preflight
+  // ✅ Immediately handle OPTIONS
   if (req.method === 'OPTIONS') {
-    res.setHeader('Content-Length', '0');
-    return res.status(200).end();
+    return res.status(200).end(); // CORS preflight success
   }
 
+  // ✅ Only parse body for POST
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
+  }
+
+  // ✅ Handle raw body parse (required for Vercel)
+  if (!req.body) {
+    const buffers = [];
+    for await (const chunk of req) {
+      buffers.push(chunk);
+    }
+
+    try {
+      req.body = JSON.parse(Buffer.concat(buffers).toString());
+    } catch (err) {
+      return res.status(400).json({ error: 'Invalid JSON body' });
+    }
   }
 
   // reCAPTCHA verification
